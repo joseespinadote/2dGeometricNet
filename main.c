@@ -29,6 +29,7 @@ int main()
     triangle triangulos[LARGO_MALLA];
     vertex vertices[LARGO_MALLA+2];
     vertex newPoints[LARGO_MALLA+2]; /* para depurar */
+    vertex *tempVertex;
     float newPointX, newPointY, detE1,
         detE2, detE3;
     int i, j, numPoints, numTriangulos = 0,
@@ -56,10 +57,10 @@ int main()
         return 1;
     }
     numPoints=0;
+    offsetTriangle = numTriangulos;
     while(!feof(fpInput)) {
         fscanf(fpInput, "%f %f", &newPointX, &newPointY);
         newPoints[numPoints] = (vertex){.x=newPointX, .y=newPointY};
-        offsetTriangle = numTriangulos;
         for(i=0; i<numTriangulos;i++) {
             /*
             d=(x−x1)(y2−y1)−(y−y1)(x2−x1)
@@ -78,29 +79,31 @@ int main()
                 (newPointY-triangulos[i].e3->v1->y)*
                 (triangulos[i].e3->v2->x-triangulos[i].e3->v1->x);
             if (detE1 == 0 && detE2 < 0 && detE3 < 0) {
+                tempVertex = malloc(sizeof(vertex));
+                *tempVertex = *triangulos[i].e1->v1;
                 triangulos[i].e1 = &(edge) {
                     .v1=&newPoints[numPoints],
                     .v2=triangulos[i].e1->v2
                 };
-                offsetTriangle++;
                 triangulos[i].e3 = &(edge) {
                     .v1=triangulos[i].e2->v2,
-                    .v2=&newPoints[numPoints]
+                    .v2=triangulos[i].e1->v1
+                };
+                triangulos[offsetTriangle].e1 = &(edge) {
+                    .v1=tempVertex,
+                    .v2=triangulos[i].e1->v1
+                };
+                triangulos[offsetTriangle].e2 = &(edge) {
+                    .v1=triangulos[offsetTriangle].e1->v2,
+                    .v2=triangulos[i].e2->v2
+                };
+                triangulos[offsetTriangle].e3 = &(edge) {
+                    .v1=triangulos[offsetTriangle].e2->v2,
+                    .v2=triangulos[offsetTriangle].e1->v1
                 };
                 offsetTriangle++;
             } else if(detE1 < 0 && detE2 == 0 && detE3 < 0) {
-                /*
-                triangulos[i].e2 = &(edge) {
-                    .v1=&triangulos[i].e2->v1,
-                    .v2=&newPoints[numPoints]
-                };
-                offsetTriangle++;
-                triangulos[i].e3 = &(edge) {
-                    .v1=&newPoints[numPoints],
-                    .v2=&triangulos[i].e1->v1
-                };
-                offsetTriangle++;
-                */
+                
             } else if(detE1 < 0 && detE2 < 0 && detE3 == 0) {
 
             } else if(detE1 < 0 && detE2 < 0 && detE3 < 0) {
@@ -114,7 +117,7 @@ int main()
     fclose(fpInput);
     
     fpOutput = fopen(fileOutput, "w");
-    for(i=0; i<numTriangulos; i++) {
+    for(i=0; i<offsetTriangle; i++) {
         fprintf(fpOutput, "%f %f\n", triangulos[i].e1->v1->x, triangulos[i].e1->v1->y);
         fprintf(fpOutput, "%f %f\n", triangulos[i].e1->v2->x, triangulos[i].e1->v2->y);
         fprintf(fpOutput, "%f %f\n", triangulos[i].e2->v1->x, triangulos[i].e2->v1->y);
@@ -127,5 +130,15 @@ int main()
         fprintf(fpOutput, "%f %f\n", newPoints[i].x, newPoints[i].y);
     }
     fclose(fpOutput);
+    /*
+    for(i=offsetTriangle-1; i!=0; i--) {
+        free(triangulos[i].e1->v1);
+        free(triangulos[i].e1->v2);
+        free(triangulos[i].e2->v1);
+        free(triangulos[i].e2->v2);
+        free(triangulos[i].e3->v1);
+        free(triangulos[i].e3->v2);
+    }
+    */
     return 0;
 }
