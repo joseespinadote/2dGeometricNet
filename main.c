@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LARGO_MALLA 10
+#define LARGO_MALLA 32
 #define TAMANO_BUFFER 64
 
 struct triangle;
@@ -29,8 +29,10 @@ int main()
     triangle triangulos[LARGO_MALLA];
     vertex vertices[LARGO_MALLA+2];
     vertex newPoints[LARGO_MALLA+2]; /* para depurar */
-    float newPointX, newPointY;
-    int i, j, numPoints, isInside, numTriangulos=0;
+    float newPointX, newPointY, detE1,
+        detE2, detE3;
+    int i, j, numPoints, numTriangulos = 0,
+        offsetTriangle = 0;
 
     printf(".::el trianguleitor::. v0.3\n");
 
@@ -53,39 +55,64 @@ int main()
         printf("can't open file\n");
         return 1;
     }
-    
     numPoints=0;
     while(!feof(fpInput)) {
         fscanf(fpInput, "%f %f", &newPointX, &newPointY);
-        newPoints[numPoints] = (vertex){.x=newPointX,.y=newPointY};
-        numPoints++;
-        printf("[debug] punto %d: (%f, %f)\n==========\n", numPoints, newPointX, newPointY);
-        isInside = 0;
+        newPoints[numPoints] = (vertex){.x=newPointX, .y=newPointY};
+        offsetTriangle = numTriangulos;
         for(i=0; i<numTriangulos;i++) {
             /*
-            ref: https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
             d=(x−x1)(y2−y1)−(y−y1)(x2−x1)
+            ref: https://math.stackexchange.com/questions/274712/calculate-on-which-side-of-a-straight-line-is-a-given-point-located
             */
-            printf("esta en el t%d?\n",i);
-            printf("%f\n",
-                (newPointX-triangulos[i].e1->v1->x)*
+            detE1 = (newPointX-triangulos[i].e1->v1->x)*
                 (triangulos[i].e1->v2->y-triangulos[i].e1->v1->y)-
                 (newPointY-triangulos[i].e1->v1->y)*
-                (triangulos[i].e1->v2->x-triangulos[i].e1->v1->x));
-            printf("%f\n",
-                (newPointX-triangulos[i].e2->v1->x)*
+                (triangulos[i].e1->v2->x-triangulos[i].e1->v1->x);
+            detE2 = (newPointX-triangulos[i].e2->v1->x)*
                 (triangulos[i].e2->v2->y-triangulos[i].e2->v1->y)-
                 (newPointY-triangulos[i].e2->v1->y)*
-                (triangulos[i].e2->v2->x-triangulos[i].e2->v1->x));
-            printf("%f\n\n",
-                (newPointX-triangulos[i].e3->v1->x)*
+                (triangulos[i].e2->v2->x-triangulos[i].e2->v1->x);
+            detE3 = (newPointX-triangulos[i].e3->v1->x)*
                 (triangulos[i].e3->v2->y-triangulos[i].e3->v1->y)-
                 (newPointY-triangulos[i].e3->v1->y)*
-                (triangulos[i].e3->v2->x-triangulos[i].e3->v1->x));
+                (triangulos[i].e3->v2->x-triangulos[i].e3->v1->x);
+            if (detE1 == 0 && detE2 < 0 && detE3 < 0) {
+                triangulos[i].e1 = &(edge) {
+                    .v1=&newPoints[numPoints],
+                    .v2=triangulos[i].e1->v2
+                };
+                offsetTriangle++;
+                triangulos[i].e3 = &(edge) {
+                    .v1=triangulos[i].e2->v2,
+                    .v2=&newPoints[numPoints]
+                };
+                offsetTriangle++;
+            } else if(detE1 < 0 && detE2 == 0 && detE3 < 0) {
+                /*
+                triangulos[i].e2 = &(edge) {
+                    .v1=&triangulos[i].e2->v1,
+                    .v2=&newPoints[numPoints]
+                };
+                offsetTriangle++;
+                triangulos[i].e3 = &(edge) {
+                    .v1=&newPoints[numPoints],
+                    .v2=&triangulos[i].e1->v1
+                };
+                offsetTriangle++;
+                */
+            } else if(detE1 < 0 && detE2 < 0 && detE3 == 0) {
+
+            } else if(detE1 < 0 && detE2 < 0 && detE3 < 0) {
+                
+            } else {
+                continue;
+            }
+            numPoints++;
         }
     }
-    
     fclose(fpInput);
+    
     fpOutput = fopen(fileOutput, "w");
     for(i=0; i<numTriangulos; i++) {
         fprintf(fpOutput, "%f %f\n", triangulos[i].e1->v1->x, triangulos[i].e1->v1->y);
