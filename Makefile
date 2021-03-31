@@ -1,3 +1,5 @@
+all: clean main.exe
+
 main.exe: main.obj
 
 main.obj: main.c
