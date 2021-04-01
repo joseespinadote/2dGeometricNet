@@ -4,6 +4,8 @@
 
 #define LARGO_MALLA 32
 #define TAMANO_BUFFER 64
+#define TAMANO_MALLA_X 10
+#define TAMANO_MALLA_Y 10
 
 struct triangle;
 
@@ -33,14 +35,15 @@ int main()
     edge tempEdge;
     float newPointX, newPointY, detE1,
         detE2, detE3;
-    int i, j, numPoints, numTriangulos = 0;
+    int i, j, numPoints, numTriangulos = 0,
+        isAlready;
 
     printf(".::el trianguleitor::.\n");
 
-    vertices[0].x = 0; vertices[0].y = 4;
+    vertices[0].x = 0; vertices[0].y = TAMANO_MALLA_Y;
     vertices[1].x = 0; vertices[1].y = 0;
-    vertices[2].x = 4; vertices[2].y = 0;
-    vertices[3].x = 4; vertices[3].y = 4;
+    vertices[2].x = TAMANO_MALLA_X; vertices[2].y = 0;
+    vertices[3].x = TAMANO_MALLA_X; vertices[3].y = TAMANO_MALLA_Y;
     triangulos[0].e1 = (edge){.v1=vertices[0], .v2=vertices[1], NULL};
     triangulos[0].e2 = (edge){.v1=vertices[1], .v2=vertices[2], NULL};
     triangulos[0].e3 = (edge){.v1=vertices[2], .v2=vertices[0], NULL};
@@ -61,6 +64,15 @@ int main()
         fscanf(fpInput, "%f %f", &newPointX, &newPointY);
         printf("punto: %f %f\n",newPointX, newPointY);
         newPoints[numPoints] = (vertex){.x=newPointX, .y=newPointY};
+        isAlready=0;
+        for(i=0; i<numPoints; i++) {
+            if(newPoints[i].x == newPointX && newPoints[i].y == newPointY) {
+                isAlready=1;
+                break;
+            }
+        }
+        if(isAlready)
+            continue;
         for(i=0; i<numTriangulos;i++) {
             /*
             d=(x−x1)(y2−y1)−(y−y1)(x2−x1)
@@ -307,6 +319,10 @@ int main()
                     .v2=triangulos[numTriangulos].e1.v1,
                     .vecino=tempTriangle.e3.vecino
                 };
+                if(tempTriangle.e3.vecino)
+                    tempTriangle.e3.vecino->e1.vecino=&triangulos[numTriangulos]; 
+                if(tempTriangle.e2.vecino)
+                    tempTriangle.e2.vecino->e3.vecino=&triangulos[numTriangulos-1];
                 triangulos[i].e2.vecino=&triangulos[numTriangulos-1];
                 triangulos[i].e3.vecino=&triangulos[numTriangulos];
                 triangulos[numTriangulos-1].e3.vecino=&triangulos[numTriangulos];
@@ -341,14 +357,13 @@ e3: (%.2f,%.2f) -> (%.2f,%.2f), vecino %p\n",
         fprintf(fpOutput, "%f %f\n", triangulos[i].e2.v1.x, triangulos[i].e2.v1.y);
         fprintf(fpOutput, "%f %f\n", triangulos[i].e2.v2.x, triangulos[i].e2.v2.y);
         fprintf(fpOutput, "%f %f\n", triangulos[i].e3.v1.x, triangulos[i].e3.v1.y);
-        fprintf(fpOutput, "%f %f\n", triangulos[i].e3.v2.x, triangulos[i].e3.v2.y);
+        fprintf(fpOutput, "%f %f\n\n", triangulos[i].e3.v2.x, triangulos[i].e3.v2.y);
     }
+    /*
     fprintf(fpOutput, "\n\n");
     for(i=0; i<numPoints; i++) {
         fprintf(fpOutput, "%f %f\n", newPoints[i].x, newPoints[i].y);
     }
-    fclose(fpOutput);
-    /*
     for(i=numTriangulos-1; i!=0; i--) {
         free(triangulos[i].e1.v1);
         free(triangulos[i].e1.v2);
@@ -358,5 +373,6 @@ e3: (%.2f,%.2f) -> (%.2f,%.2f), vecino %p\n",
         free(triangulos[i].e3.v2);
     }
     */
+    fclose(fpOutput);
     return 0;
 }
