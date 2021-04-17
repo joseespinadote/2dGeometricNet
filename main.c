@@ -56,7 +56,9 @@ int main()
     i y j son índices genéricos
     */
     float x, y, det, dets[3], **mat2x2, **mat4x4;
-    int i, j, numTrs, numVs;
+    int i, j, numTrs, numVs, idBorde,
+        idVerticeOpuesto, idVerticeCompartido1,
+        idVerticeCompartido2;
 
     /*
     Se reserva memoria para las matrices que
@@ -130,7 +132,6 @@ int main()
             mat2x2[1][0] = triangles[i].vertices[0]->y - triangles[i].vertices[2]->y;
             mat2x2[1][1] = y                           - triangles[i].vertices[2]->y;
             dets[2] = determinant(mat2x2, 2);
-
             /*
             Caso en que el punto cae dentro de un triángulo "i"
             0
@@ -147,7 +148,6 @@ int main()
             if (dets[0] > 0 && dets[1] > 0 && dets[2] > 0) {
                 printf("punto encontrado al interior del triangulo %d\n", i);
                 vertices[numVs] = (Vertex){.x=x, .y=y};
-
                 /*
                 Se crea el triángulo "b"
                 ǁ\
@@ -169,18 +169,17 @@ int main()
                 Al mismo tiempo, se asigna desde ese vecino a triangles[numTrs]
                 como vecino opuesto cuyo vértice no comparte con el triángulo "i"
                 */
-                if (triangles[i].next[0]!=NULL) {
+                if (triangles[i].next[0] != NULL) {
                     triangles[numTrs].next[0] = triangles[i].next[0];
                     for(j=0;j<3;j++) {
                         if (triangles[i].next[0]->vertices[j] != triangles[numTrs].vertices[1] && 
                             triangles[i].next[0]->vertices[j] != triangles[numTrs].vertices[2]) {
-                                printf("ok a\n");
+                                printf("a) existe un vecino que tiene un vertice opuesto en %d\n", j);
                                 triangles[i].next[0]->next[j] = &triangles[numTrs];
                             }
                     }
                 }
                 numTrs++;
-                
                 /*
                 Se crea el triángulo "c"
                 */
@@ -197,7 +196,7 @@ int main()
                     for(j=0;j<3;j++) {
                         if (triangles[i].next[1]->vertices[j] != triangles[numTrs].vertices[0] && 
                             triangles[i].next[1]->vertices[j] != triangles[numTrs].vertices[2]) {
-                                printf("ok b\n");
+                                printf("b) existe un vecino que tiene un vertice opuesto en %d\n", j);
                                 triangles[i].next[1]->next[j] = &triangles[numTrs];
                             }
                     }
@@ -205,220 +204,114 @@ int main()
                 numTrs++;
 
                 /*
-                El triángulo "i" toma la forma de "a", y se asignan
-                los nuevos triángulos como sus vecinos
+                El triángulo "i" toma la forma de "a"
                 */
                 triangles[i].vertices[2] = &vertices[numVs];
-                triangles[i].next[0] = &triangles[numTrs - 1];
-                triangles[i].next[1] = &triangles[numTrs];
-
+                /*
+                , y se le asignan los nuevos triángulos como sus vecinos
+                */
+                triangles[i].next[0] = &triangles[numTrs - 2];
+                triangles[i].next[1] = &triangles[numTrs - 1];
                 /*
                 Se considera que hay un nuevo vértice la ejecución
                 */
                 numVs++;
                 break;
-            } 
+            }
             /*
-            Caso en que el punto cae en el primero lado de un triángulo "i"
+            Caso en que el punto cae en un borde
             0
             |\
             | \
             |  \
             |   \
-            X    \
+            X    x
             |  i  \
             |      \
-            |_______\
+            |__x____\
             1        2
+
+            donde:
+            idBorde es un indice que permite conocer en la arista del triangulo
+            donde cae el nuevo punto. Es sólo para depurar
+            idVerticeOpuesto es el numero de indice del vertice opuesto a la arista
+            donde cae el nuevo punto
+            idVerticeCompartido1 y idVerticeCompartido2 son los vertices restantes
+            del triángulo "i" en dirección contra-reloj
             */
-            else if (dets[0] == 0 && dets[1] != 0 && dets[2] != 0) {
-                printf("punto encontrado en borde 1 del triangulo %d\n", i);
+            idBorde = -1;
+            if (dets[0] == 0 && dets[1] > 0 && dets[2] > 0) {
+                idBorde = 1;
+                idVerticeOpuesto = 2;
+                idVerticeCompartido1 = 0;
+                idVerticeCompartido2 = 1;
+            } else if (dets[0] > 0 && dets[1] == 0 && dets[2] > 0) {
+                idBorde = 2;
+                idVerticeOpuesto = 0;
+                idVerticeCompartido1 = 1;
+                idVerticeCompartido2 = 2;
+            } else if (dets[0] > 0 && dets[1] > 0 && dets[2] == 0) {
+                idBorde = 3;
+                idVerticeOpuesto = 1;
+                idVerticeCompartido1 = 2;
+                idVerticeCompartido2 = 0;
+            }
+            if (idBorde>0) {
+                printf("punto encontrado en triangulo %d, en borde %d\n", i, idBorde);
                 vertices[numVs] = (Vertex){.x=x, .y=y};
+                if (triangles[i].next[idVerticeOpuesto] != NULL) {
+                    /*
+                    Se crea nuevo triangulo sobre el vecino
+                    */
+                    for(j=0; j<3; j++) {
+                        /*
+                        Se busca el vertice opuesto del vecino
+                        */
+                        if(triangles[i].next[idVerticeOpuesto]->vertices[j] != triangles[i].vertices[idVerticeCompartido1] &&
+                            triangles[i].next[idVerticeOpuesto]->vertices[j] != triangles[i].vertices[idVerticeCompartido2]) {
+                            printf("triangulo %d en %p tiene vecino %p opuesto al vertice %d el que tiene vertice opuesto %d\n", i, &triangles[i], triangles[i].next[idVerticeOpuesto], idVerticeOpuesto, j);
+                            triangles[numTrs].vertices[0] = triangles[i].next[idVerticeOpuesto]->vertices[j];
+                            triangles[numTrs].vertices[1] = triangles[i].vertices[idVerticeCompartido2];
+                            triangles[numTrs].vertices[2] = &vertices[numVs];
+                            triangles[numTrs].next[1] = triangles[i].next[idVerticeOpuesto];
+                        }
+                        if(triangles[i].next[idVerticeOpuesto]->vertices[j] == triangles[i].vertices[idVerticeCompartido1]) {
+                            triangles[numTrs].next[2] = triangles[i].next[idVerticeOpuesto]->next[j];
+                            triangles[i].next[idVerticeOpuesto]->next[j] = &triangles[numTrs];
+                        }
+                    }
+                    numTrs++;
+                    /*
+                    Se modifica el vecino para que no se solape
+                    */
+                    for(j=0; j<3; j++) {
+                        if(triangles[i].next[idVerticeOpuesto]->vertices[j] == triangles[i].vertices[idVerticeCompartido2]) {
+                            triangles[i].next[idVerticeOpuesto]->vertices[j] = &vertices[numVs];
+                            break;
+                        }
+                    }
+                }
                 /*
-                0
-                |\
-                | \
-                |  \
-                | a \
-                X    \
-                |\    \
-                |   \  \
-                |__b___\\
-                1        2
-                Se crea el triángulo "b" 
+                se crea nuevo triangulo dentro de "i"
                 */
                 triangles[numTrs].vertices[0] = &vertices[numVs];
-                triangles[numTrs].vertices[1] = triangles[i].vertices[1];
-                triangles[numTrs].vertices[2] = triangles[i].vertices[2];
+                triangles[numTrs].vertices[1] = triangles[i].vertices[idVerticeCompartido2];
+                triangles[numTrs].vertices[2] = triangles[i].vertices[idVerticeOpuesto];
+                /*
+                se actualizan los vecinos
+                */
+                triangles[numTrs].next[0] = triangles[i].next[idVerticeCompartido1];
                 triangles[numTrs].next[1] = &triangles[i];
-                /*
-                Caso en que el triángulo "i" tuviese un vecino opuesto a su
-                vértice 0
-                */
-                if (triangles[i].next[0] != NULL) {
-                    triangles[numTrs].next[0] = triangles[i].next[0];
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[0]->vertices[j] != triangles[numTrs].vertices[1] && 
-                            triangles[i].next[0]->vertices[j] != triangles[numTrs].vertices[2]) {
-                                printf("ok c\n");
-                                triangles[i].next[0]->next[j] = &triangles[numTrs];
-                            }
-                    }
-                }
-                numTrs++;
-
-                /*
-                Caso en que el triángulo "i" tuviese un vecino opuesto a su
-                vértice 2. Esto requerirá crear un nuevo triángulo
-                */
-                if (triangles[i].next[2] != NULL) {
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[2]->vertices[j] != triangles[i].vertices[0] && 
-                            triangles[i].next[2]->vertices[j] != triangles[i].vertices[1]) {
-                                printf("ok d\n");
-                                triangles[numTrs].vertices[0] = triangles[i].next[2]->vertices[j];
-                                triangles[numTrs].vertices[1] = triangles[i].vertices[1];
-                                triangles[numTrs].vertices[2] = &vertices[numVs];
-                                triangles[numTrs].next[0] = &triangles[numTrs-1];
-                                triangles[numTrs].next[1] = triangles[i].next[2];
-                                triangles[numTrs-1].next[2] = &triangles[numTrs];
-                                numTrs++;
-                        }
-                        if (triangles[i].next[2]->vertices[j] == triangles[i].vertices[1]) {
-                            triangles[i].next[2]->vertices[j] = &vertices[numVs];
-                        }
-                    }
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[2]->vertices[j] == triangles[i].vertices[0]) {
-                            if (triangles[i].next[2]->next[j] != NULL) {
-                                triangles[numTrs-1].next[2] = triangles[i].next[2]->next[j];
-                            }
-                            triangles[i].next[2]->next[j] = &triangles[numTrs-1];
-                        }
-                    }
-                }
-
-                triangles[i].vertices[1] = &vertices[numVs];
-                triangles[i].next[0] = &triangles[numTrs-2];
-
-                /*
-                Test del círculo
-                */
-                if (triangles[i].next[1]!=NULL) {
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[1]->vertices[j] != triangles[i].vertices[0] && 
-                            triangles[i].next[1]->vertices[j] != triangles[i].vertices[2]) {
-                            mat4x4[0][0] = triangles[i].vertices[0]->x;
-                            mat4x4[0][1] = triangles[i].vertices[0]->y;
-                            mat4x4[0][2] = pow(triangles[i].vertices[0]->x, 2) + pow(triangles[i].vertices[0]->y, 2);
-                            mat4x4[0][3] = 1;
-                            mat4x4[1][0] = triangles[i].vertices[1]->x;
-                            mat4x4[1][1] = triangles[i].vertices[1]->y;
-                            mat4x4[1][2] = pow(triangles[i].vertices[1]->x, 2) + pow(triangles[i].vertices[1]->y, 2);
-                            mat4x4[1][3] = 1;
-                            mat4x4[2][0] = triangles[i].vertices[2]->x;
-                            mat4x4[2][1] = triangles[i].vertices[2]->y;
-                            mat4x4[2][2] = pow(triangles[i].vertices[2]->x, 2) + pow(triangles[i].vertices[2]->y, 2);
-                            mat4x4[2][3] = 1;
-                            mat4x4[3][0] = triangles[i].next[1]->vertices[j]->x;
-                            mat4x4[3][1] = triangles[i].next[1]->vertices[j]->y;
-                            mat4x4[3][2] = pow(triangles[i].next[1]->vertices[j]->x, 2) + pow(triangles[i].next[1]->vertices[j]->y, 2);
-                            mat4x4[3][3] = 1;
-                            det = determinant(mat2x2, 2);                            
-                            printf("-->%f<--\n", det);
-                        }
-                    }
-                }
-
-                numVs++;
-                break;
-            } else if (dets[0] != 0 && dets[1] == 0 && dets[2] != 0) {
-                printf("punto encontrado en borde 2 del triangulo %d\n", i);
-                vertices[numVs] = (Vertex){.x=x, .y=y};
-                /*
-                0
-                |\
-                ||\
-                || \
-                | | \
-                | |  \
-                |a | b\
-                |  |   \
-                |___X___\
-                1        2
-                Se crea el triángulo "b"
-                */
-                triangles[numTrs].vertices[0] = triangles[i].vertices[0];
-                triangles[numTrs].vertices[1] = &vertices[numVs];
-                triangles[numTrs].vertices[2] = triangles[i].vertices[2];
-                triangles[numTrs].next[2] = &triangles[i];
-                /*
-                Caso en que exista un vecino opuesto al vértice 1
-                */
-                if (triangles[i].next[1] != NULL) {
-                    triangles[numTrs].next[1] = triangles[i].next[1];
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[0]->vertices[j] != triangles[numTrs].vertices[0] && 
-                            triangles[i].next[0]->vertices[j] != triangles[numTrs].vertices[2]) {
-                                printf("ok aa\n");
-                                triangles[i].next[0]->next[j] = &triangles[numTrs];
-                            }
-                    }
+                if (triangles[i].next[idVerticeOpuesto] != NULL) {
+                    triangles[numTrs].next[2] = &triangles[numTrs-1];
+                    triangles[numTrs-1].next[0] = &triangles[numTrs];
                 }
                 numTrs++;
                 /*
-                Caso en que el triángulo "i" tuviese un vecino opuesto a su
-                vértice 0. Esto requerirá crear un nuevo triángulo
+                se modifica el triangulo "i" para que no se solape con el último nuevo triángulo
+                triangles[i].vertices[idVerticeCompartido1] = &vertices[numVs];
                 */
-                if (triangles[i].next[0] != NULL) {
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[0]->vertices[j] != triangles[i].vertices[1] && 
-                            triangles[i].next[0]->vertices[j] != triangles[i].vertices[2]) {
-                                printf("ok ab\n");
-                                triangles[numTrs].vertices[0] = &vertices[numVs];
-                                triangles[numTrs].vertices[1] = triangles[i].next[0]->vertices[j];
-                                triangles[numTrs].vertices[2] = triangles[i].vertices[2];
-                                /*
-                                si triangles[i].next[0] tiene un vecino en los vertices que comparte con
-                                triangles[numTrs], entonces se deben actualizar esos vecinos
-
-                                triangles[numTrs].next[0] = 
-                                triangles[numTrs].next[1] = 
-                                triangles[numTrs-1].next[2] = 
-                                */
-                                numTrs++;
-                        }
-                        if (triangles[i].next[2]->vertices[j] == triangles[i].vertices[1]) {
-                            triangles[i].next[2]->vertices[j] = &vertices[numVs];
-                        }
-                    }
-                    for(j=0;j<3;j++) {
-                        if (triangles[i].next[2]->vertices[j] == triangles[i].vertices[0]) {
-                            if (triangles[i].next[2]->next[j] != NULL) {
-                                triangles[numTrs-1].next[2] = triangles[i].next[2]->next[j];
-                            }
-                            triangles[i].next[2]->next[j] = &triangles[numTrs-1];
-                        }
-                    }
-                }
-                triangles[i].vertices[2] = &vertices[numVs];
                 numVs++;
-                break;
-            } else if (dets[0] != 0 && dets[1] != 0 && dets[2] == 0) {
-                printf("punto encontrado en borde 3 del triangulo %d\n", i);
-                vertices[numVs] = (Vertex){.x=x, .y=y};
-                
-                triangles[numTrs].vertices[0] = &vertices[numVs];
-                triangles[numTrs].vertices[1] = triangles[i].vertices[1];
-                triangles[numTrs].vertices[2] = triangles[i].vertices[2];
-                numTrs++;
-
-                triangles[i].vertices[3] = &vertices[numVs];
-                numVs++;
-
-                if (triangles[i].next[1]!=NULL) {
-                    
-                }
                 break;
             }
         }
@@ -429,6 +322,16 @@ int main()
         fprintf(fpOutput,"%f %f\n",triangles[i].vertices[1]->x, triangles[i].vertices[1]->y);
         fprintf(fpOutput,"%f %f\n",triangles[i].vertices[2]->x, triangles[i].vertices[2]->y);
         fprintf(fpOutput,"%f %f\n\n",triangles[i].vertices[0]->x, triangles[i].vertices[0]->y);
+    }
+    fclose(fpOutput);
+
+    for(i=0; i<numTrs;i++) {
+        printf("t%d: %.2f,%.2f %.2f,%.2f %.2f,%.2f vecinos: %p %p %p en %p\n",
+            i,triangles[i].vertices[0]->x, triangles[i].vertices[0]->y,
+            triangles[i].vertices[1]->x, triangles[i].vertices[1]->y,
+            triangles[i].vertices[2]->x, triangles[i].vertices[2]->y,
+            triangles[i].next[0], triangles[i].next[1], triangles[i].next[2],
+            &triangles[i]);
     }
 
     for(i=0; i<2; i++) {
