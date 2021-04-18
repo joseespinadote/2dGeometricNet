@@ -53,10 +53,10 @@ int main()
     mat4x4 se usan para calcular los determinantes.
     numTrs es el número total de triángulos
     numVs es el número total de vectores
-    i y j son índices genéricos
+    i, j y k son índices genéricos
     */
     float x, y, det, dets[3], **mat2x2, **mat4x4;
-    int i, j, numTrs, numVs, idBorde,
+    int i, j, k, numTrs, numVs, idBorde,
         idVerticeOpuesto, idVerticeCompartido1,
         idVerticeCompartido2;
 
@@ -72,7 +72,6 @@ int main()
     for(i=0; i<4; i++) {
         mat4x4[i] = calloc(4,sizeof(float));
     }
-
     /*
     Se inicializa la malla con 2 triángulos
     arbitrarios
@@ -162,6 +161,7 @@ int main()
                 triangles[numTrs].vertices[0] = &vertices[numVs];
                 triangles[numTrs].vertices[1] = triangles[i].vertices[1];
                 triangles[numTrs].vertices[2] = triangles[i].vertices[2];
+                triangles[numTrs].next[0] = triangles[i].next[0];
                 /*
                 Si en dirección opuesta al vértice 0 del triángulo "i"
                 existe un vecino, entonces se le asigna ese mismo al nuevo
@@ -186,6 +186,7 @@ int main()
                 triangles[numTrs].vertices[0] = triangles[i].vertices[0];
                 triangles[numTrs].vertices[1] = &vertices[numVs];
                 triangles[numTrs].vertices[2] = triangles[i].vertices[2];
+                triangles[numTrs].next[1] = triangles[i].next[1];
                 /*
                 Si el triángulo "i" tiene vecino opuesto al vértice 1,
                 entonces ese vecino será el vecino del vértice 1 de
@@ -208,12 +209,137 @@ int main()
                 */
                 triangles[i].vertices[2] = &vertices[numVs];
                 /*
-                , y se le asignan los nuevos triángulos como sus vecinos
+                , y se actualizan lo que falta respecto a los
+                vecinos
                 */
+                triangles[numTrs - 1].next[0] = &triangles[numTrs - 2];
+                triangles[numTrs - 1].next[2] = &triangles[i];
+                triangles[numTrs - 2].next[1] = &triangles[numTrs - 1];
+                triangles[numTrs - 2].next[2] = &triangles[i];
                 triangles[i].next[0] = &triangles[numTrs - 2];
                 triangles[i].next[1] = &triangles[numTrs - 1];
                 /*
-                Se considera que hay un nuevo vértice la ejecución
+                Se aplica el test del circulo a los nuevos 3 triangulos
+                (2 nuevos y uno modificado), siempre q existan los vecinos
+                externos
+                test del circulo triangulo "a"
+                */
+                if (triangles[i].next[2] != NULL) {
+                    for(j=0; j<3; j++) {
+                        if(triangles[i].next[2]->vertices[j] != triangles[i].vertices[0] &&
+                            triangles[i].next[2]->vertices[j] != triangles[i].vertices[1]) {
+                            printf("test circulo entre triagulo 'a' %p y vertice %d de %p\n",
+                                &triangles[i], j, triangles[i].next[2]);
+                            mat4x4[0][0] = triangles[i].vertices[0]->x;
+                            mat4x4[0][1] = triangles[i].vertices[0]->y;
+                            mat4x4[0][2] = pow(triangles[i].vertices[0]->x, 2) + pow(triangles[i].vertices[0]->y, 2);
+                            mat4x4[0][3] = 1;
+                            mat4x4[1][0] = triangles[i].vertices[1]->x;
+                            mat4x4[1][1] = triangles[i].vertices[1]->y;
+                            mat4x4[1][2] = pow(triangles[i].vertices[1]->x, 2) + pow(triangles[i].vertices[1]->y, 2);
+                            mat4x4[1][3] = 1;
+                            mat4x4[2][0] = triangles[i].vertices[2]->x;
+                            mat4x4[2][1] = triangles[i].vertices[2]->y;
+                            mat4x4[2][2] = pow(triangles[i].vertices[2]->x, 2) + pow(triangles[i].vertices[2]->y, 2);
+                            mat4x4[2][3] = 1;
+                            mat4x4[3][0] = triangles[i].next[2]->vertices[j]->x;
+                            mat4x4[3][1] = triangles[i].next[2]->vertices[j]->y;
+                            mat4x4[3][2] = pow(triangles[i].next[2]->vertices[j]->x, 2) + pow(triangles[i].next[2]->vertices[j]->y, 2);
+                            mat4x4[3][3] = 1;
+                            det = determinant(mat4x4, 4);
+                            printf("test circulo 'a' %p: %.1f\n", &triangles[i], det);
+                            if (det>0) {
+                                for(k=0; k<3; k++) {
+                                    if(triangles[i].next[2]->vertices[k] == triangles[i].vertices[0]) {
+                                        triangles[i].next[2]->vertices[k] = &vertices[numVs];
+                                        break;
+                                    }
+                                }
+                                triangles[i].vertices[1] = triangles[i].next[2]->vertices[j];
+                            }
+                        }
+                    }
+                }
+                /*
+                test del círculo para el triángulo "b"
+                */
+                if (triangles[numTrs - 2].next[0] != NULL) {
+                    for(j=0; j<3; j++) {
+                        if(triangles[numTrs - 2].next[0]->vertices[j] != triangles[numTrs - 2].vertices[1] &&
+                            triangles[numTrs - 2].next[0]->vertices[j] != triangles[numTrs - 2].vertices[2]) {
+                            printf("test circulo entre triagulo 'b' %p y vertice %d de %p\n",
+                                &triangles[numTrs - 2], j, triangles[numTrs - 2].next[0]);
+                            mat4x4[0][0] = triangles[numTrs - 2].vertices[0]->x;
+                            mat4x4[0][1] = triangles[numTrs - 2].vertices[0]->y;
+                            mat4x4[0][2] = pow(triangles[numTrs - 2].vertices[0]->x, 2) + pow(triangles[numTrs - 2].vertices[0]->y, 2);
+                            mat4x4[0][3] = 1;
+                            mat4x4[1][0] = triangles[numTrs - 2].vertices[1]->x;
+                            mat4x4[1][1] = triangles[numTrs - 2].vertices[1]->y;
+                            mat4x4[1][2] = pow(triangles[numTrs - 2].vertices[1]->x, 2) + pow(triangles[numTrs - 2].vertices[1]->y, 2);
+                            mat4x4[1][3] = 1;
+                            mat4x4[2][0] = triangles[numTrs - 2].vertices[2]->x;
+                            mat4x4[2][1] = triangles[numTrs - 2].vertices[2]->y;
+                            mat4x4[2][2] = pow(triangles[numTrs - 2].vertices[2]->x, 2) + pow(triangles[numTrs - 2].vertices[2]->y, 2);
+                            mat4x4[2][3] = 1;
+                            mat4x4[3][0] = triangles[numTrs - 2].next[0]->vertices[j]->x;
+                            mat4x4[3][1] = triangles[numTrs - 2].next[0]->vertices[j]->y;
+                            mat4x4[3][2] = pow(triangles[numTrs - 2].next[0]->vertices[j]->x, 2) + pow(triangles[numTrs - 2].next[0]->vertices[j]->y, 2);
+                            mat4x4[3][3] = 1;
+                            det = determinant(mat4x4, 4);
+                            printf("test circulo 'b' %p: %.1f\n", &triangles[numTrs - 2], det);
+                            if (det>0) {
+                                for(k=0; k<3; k++) {
+                                    if(triangles[numTrs - 2].next[0]->vertices[k] == triangles[numTrs - 2].vertices[1]) {
+                                        triangles[numTrs - 2].next[0]->vertices[k] = &vertices[numVs];
+                                        break;
+                                    }
+                                }
+                                triangles[numTrs - 2].vertices[2] = triangles[numTrs - 2].next[0]->vertices[j];
+                            }
+                        }
+                    }
+                }
+                /*
+                test del círculo para el triángulo "c"
+                */
+                if (triangles[numTrs - 1].next[1] != NULL) {
+                    for(j=0; j<3; j++) {
+                        if(triangles[numTrs - 1].next[1]->vertices[j] != triangles[numTrs - 1].vertices[0] &&
+                            triangles[numTrs - 1].next[1]->vertices[j] != triangles[numTrs - 1].vertices[2]) {
+                            printf("test circulo entre triagulo 'c' %p y vertice %d de %p\n",
+                                &triangles[numTrs - 1], j, triangles[numTrs - 1].next[1]);
+                            mat4x4[0][0] = triangles[numTrs - 1].vertices[0]->x;
+                            mat4x4[0][1] = triangles[numTrs - 1].vertices[0]->y;
+                            mat4x4[0][2] = pow(triangles[numTrs - 1].vertices[0]->x, 2) + pow(triangles[numTrs - 1].vertices[0]->y, 2);
+                            mat4x4[0][3] = 1;
+                            mat4x4[1][0] = triangles[numTrs - 1].vertices[1]->x;
+                            mat4x4[1][1] = triangles[numTrs - 1].vertices[1]->y;
+                            mat4x4[1][2] = pow(triangles[numTrs - 1].vertices[1]->x, 2) + pow(triangles[numTrs - 1].vertices[1]->y, 2);
+                            mat4x4[1][3] = 1;
+                            mat4x4[2][0] = triangles[numTrs - 1].vertices[2]->x;
+                            mat4x4[2][1] = triangles[numTrs - 1].vertices[2]->y;
+                            mat4x4[2][2] = pow(triangles[numTrs - 1].vertices[2]->x, 2) + pow(triangles[numTrs - 1].vertices[2]->y, 2);
+                            mat4x4[2][3] = 1;
+                            mat4x4[3][0] = triangles[numTrs - 1].next[1]->vertices[j]->x;
+                            mat4x4[3][1] = triangles[numTrs - 1].next[1]->vertices[j]->y;
+                            mat4x4[3][2] = pow(triangles[numTrs - 1].next[1]->vertices[j]->x, 2) + pow(triangles[numTrs - 1].next[1]->vertices[j]->y, 2);
+                            mat4x4[3][3] = 1;
+                            det = determinant(mat4x4, 4);
+                            printf("test circulo 'c' %p: %.1f\n", &triangles[numTrs - 1], det);
+                            if (det>0) {
+                                for(k=0; k<3; k++) {
+                                    if(triangles[numTrs - 1].next[1]->vertices[k] == triangles[numTrs - 1].vertices[2]) {
+                                        triangles[numTrs - 1].next[1]->vertices[k] = &vertices[numVs];
+                                        break;
+                                    }
+                                }
+                                triangles[numTrs - 1].vertices[0] = triangles[numTrs - 1].next[1]->vertices[j];
+                            }
+                        }
+                    }
+                }
+                /*
+                Se considera que hay un nuevo vértice en la ejecución
                 */
                 numVs++;
                 break;
