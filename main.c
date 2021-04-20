@@ -150,7 +150,6 @@ void changeDiag(Triangle *original, Triangle *next, int sharedV1, int sharedV2, 
             /* rescate vertice opuesto */
             if (next->vertices[i] != original->vertices[sharedV1] &&
                 next->vertices[i] != original->vertices[sharedV2]) {
-                printf("encontre el vertice opuesto de indice %d (otra vez???) !\n", i);
                 opposite = next->vertices[i];
                 nextOppositeV3 = i;
                 break;
@@ -167,9 +166,6 @@ void changeDiag(Triangle *original, Triangle *next, int sharedV1, int sharedV2, 
                 if(next->next[i] != NULL) {
                     farNext2 = next->next[i];
                     vertexId = getThirdVertexId(next->next[i], opposite, original->vertices[sharedV1]);
-                    if (vertexId<0) {
-                        printf("error A\n");
-                    }
                     next->next[i]->next[vertexId] = original;
                 }
                 break;
@@ -188,11 +184,6 @@ void changeDiag(Triangle *original, Triangle *next, int sharedV1, int sharedV2, 
                 }
                 break;
             }
-        }
-        /* error check */
-        if (nextSharedV1==-1 || nextSharedV2 == -1 || oppositeV3 == -1) {
-            printf("noo... problemas! :'-(\n");
-            return;
         }
         /* cambiar la diagonal */
         original->vertices[sharedV2] = opposite;
@@ -213,7 +204,6 @@ void pointInside(
     Triangle *triangleC,
     Vertex *currentVertex) {
     int i;
-    printf("El punto está en el triangulo %p\n", triangleA);
     /*
     Se crearán los triángulos b y c. Se reutiliza el a
     ǁ\
@@ -240,7 +230,6 @@ void pointInside(
         for(i=0; i<3; i++) {
             if (triangleB->next[0]->vertices[i] != triangleB->vertices[1] && 
                 triangleB->next[0]->vertices[i] != triangleB->vertices[2]) {
-                    printf("'b' en %p, tiene vecino %p con vertice opuesto en %d\n", triangleB, triangleB->next[0], i);
                     triangleB->next[0]->next[i] = triangleB;
                 }
         }
@@ -248,7 +237,6 @@ void pointInside(
     /*
     Se crea el triángulo "c"
     */
-    printf("Se crea triangulo 'c', en %p\n", triangleC);
     triangleC->vertices[0] = triangleA->vertices[0];
     triangleC->vertices[1] = currentVertex;
     triangleC->vertices[2] = triangleA->vertices[2];
@@ -263,7 +251,6 @@ void pointInside(
         for(i=0; i<3; i++) {
             if (triangleC->next[1]->vertices[i] != triangleC->vertices[0] && 
                 triangleC->next[1]->vertices[i] != triangleC->vertices[2]) {
-                    printf("'c' %p, tiene vecino %p con vertice opuesto en %d\n", triangleC, triangleC->next[1], i);
                     triangleA->next[1]->next[i] = triangleC;
                 }
         }
@@ -301,7 +288,7 @@ void pointOnEdge(
     || \
     | | \
     | |  \
-    |b | a\
+    |a | b\
     |  |   \
     |___X___\
     */
@@ -316,7 +303,6 @@ void pointOnEdge(
             if(triangleA->next[idVerticeCompartido1]->vertices[i] != triangleB->vertices[1] &&
             triangleA->next[idVerticeCompartido1]->vertices[i] != triangleB->vertices[2]) {
                 triangleA->next[idVerticeCompartido1]->next[i] = triangleB;
-                printf("vecino lejano %p de %p actualizado!\n", triangleA->next[idVerticeCompartido1], triangleB);
             }
         }
     }
@@ -396,7 +382,6 @@ int main()
     numTrs = 2;
     numVs = 4;
 
-    printf("Se inicializa la malla\n");
     initMesh(triangles, vertices);
 
     /*
@@ -409,7 +394,6 @@ int main()
     }
     while(!feof(fpInput)) {
         fscanf(fpInput, "%f %f", &x, &y);
-        printf("Se lee nuevo punto: %.2f %.2f\n",x, y);
         for(i=0; i<numTrs; i++) {
             /*
             Se determina donde esta el punto dentro de la malla de triángulos
@@ -450,7 +434,6 @@ int main()
                         tr vecino lejano 1:    triangles[i].next[0]
                         tr vecino lejano 2:    es el vecino que comparte triangles[i].vertices[0] con triangles[i].next[2]
                         */
-                        printf("cambio de diag 'a' de %p y vecino %p\n", &triangles[i], triangles[i].next[2]);
                         changeDiag(&triangles[i], triangles[i].next[2], 0, 1, 2);
                     }
                 }
@@ -458,7 +441,6 @@ int main()
                 if (triangles[numTrs - 2].next[0]!=NULL) {
                     det = circleTest(&triangles[numTrs - 2], triangles[numTrs - 2].next[0], 1, 2);
                     if (det > 0) {
-                        printf("cambio de diag 'b' de %p y vecino %p\n", &triangles[numTrs - 2], triangles[numTrs - 2].next[0]);
                         changeDiag(&triangles[numTrs - 2], triangles[numTrs - 2].next[0], 1, 2, 0);
                     }
                 }
@@ -466,7 +448,6 @@ int main()
                 if (triangles[numTrs - 1].next[1]!=NULL) {
                     det = circleTest(&triangles[numTrs - 1], triangles[numTrs - 1].next[1], 0, 2);
                     if (det > 0) {
-                        printf("cambio de diag 'c' de %p y vecino %p\n", &triangles[numTrs - 1], triangles[numTrs - 1].next[1]);
                         changeDiag(&triangles[numTrs - 1], triangles[numTrs - 1].next[1], 0, 2, 1);
                     }
                 }
@@ -515,7 +496,6 @@ int main()
                 idVerticeCompartido2 = 2;
             }
             if (caeEnBorde > 0) {
-                printf("punto encontrado en triangulo %p, en borde %d\n", &triangles[i], caeEnBorde);
                 vertices[numVs] = (Vertex){.x=x, .y=y};
                 /* el punto cae en borde compartido con 2 triangulos */
                 if(triangles[i].next[idVerticeOpuesto] != NULL) {
@@ -523,16 +503,13 @@ int main()
                     for(j=0; j<3; j++) {
                         if(triangles[i].next[idVerticeOpuesto]->vertices[j]==triangles[i].vertices[idVerticeCompartido1]) {
                             idVertice2Vecino = j;
-                            printf("X");
                         }
                         else if(triangles[i].next[idVerticeOpuesto]->vertices[j]==triangles[i].vertices[idVerticeCompartido2]) {
                             idVertice1Vecino = j;
-                            printf("Y");
                         }
                         else if(triangles[i].next[idVerticeOpuesto]->vertices[j]!=triangles[i].vertices[idVerticeCompartido1] &&
                             triangles[i].next[idVerticeOpuesto]->vertices[j]!=triangles[i].vertices[idVerticeCompartido2]) {
                             idVerticeOpuestoVecino = j;
-                            printf("Z");
                         }
                     }
                     pointOnEdge(
@@ -559,34 +536,30 @@ int main()
                     /* se aplica el test de círculo para los 4 triangulos involucrados y los
                     vertices opuestos de los vecinos externos */
                     /* i */
-                    if(triangles[i].next[idVerticeCompartido2] != NULL) {
+                    if(triangles[i].next[idVerticeCompartido2] != NULL && 0) {
                         det = circleTest(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto);
                         if (det > 0) {
-                            printf("cambio de diag 'a_' de %p y vecino %p\n", &triangles[numTrs - 2], triangles[numTrs - 2].next[0]);
                             changeDiag(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto, idVerticeCompartido2);
                         }
                     }
                     /* vecino de i */
-                    if(triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino] != NULL) {
+                    if(triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino] != NULL && 0) {
                         det = circleTest(triangles[i].next[idVerticeOpuesto], triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino], idVertice1Vecino, idVerticeOpuestoVecino);
                         if (det > 0) {
-                            printf("cambio de diag 'c_' de %p y vecino %p\n", triangles[i].next[idVerticeOpuesto], triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino]);
                             changeDiag(triangles[i].next[idVerticeOpuesto], triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino], idVertice1Vecino, idVerticeOpuestoVecino, idVertice2Vecino);
                         }
                     }
                     /* nuevo 1 */
-                    if(triangles[numTrs-1].next[0] != NULL) {
+                    if(triangles[numTrs-1].next[0] != NULL && 0) {
                         det = circleTest(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2);
                         if (det > 0) {
-                            printf("cambio de diag 'b_' de %p y vecino %p\n", &triangles[numTrs-1], triangles[numTrs-1].next[0]);
                             changeDiag(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2, 0);
                         }
                     }
                     /* nuevo 2 */
-                    if(triangles[numTrs-2].next[0] != NULL) {
+                    if(triangles[numTrs-2].next[0] != NULL && 0) {
                         det = circleTest(&triangles[numTrs-2], triangles[numTrs-2].next[0], 1, 2);
                         if (det > 0) {
-                            printf("cambio de diag 'd_' de %p y vecino %p\n", &triangles[numTrs-2], triangles[numTrs-2].next[0]);
                             changeDiag(&triangles[numTrs-2], triangles[numTrs-2].next[0], 1, 2, 0);
                         }
                     }
@@ -604,14 +577,12 @@ int main()
                     if(triangles[i].next[idVerticeCompartido2] != NULL) {
                         det = circleTest(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto);
                         if (det > 0) {
-                            printf("cambio de diag 'a_' de %p y vecino %p\n", &triangles[numTrs - 2], triangles[numTrs - 2].next[0]);
                             changeDiag(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto, idVerticeCompartido2);
                         }
                     }
                     if(triangles[numTrs-1].next[0] != NULL) {
                         det = circleTest(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2);
                         if (det > 0) {
-                            printf("cambio de diag 'b_' de %p y vecino %p\n", &triangles[numTrs-1], triangles[numTrs-1].next[0]);
                             changeDiag(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2, 0);
                         }
                     }
@@ -622,7 +593,6 @@ int main()
             }
         }
     }
-    printf("\n");
     printTriangles(triangles, numTrs);
     /*
     Se genera archivo para visualización en gnuplot
