@@ -93,7 +93,10 @@ void calcDets4x4Matrix(float **mat4x4, Triangle *t, float x, float y, float *det
     *det = determinant(mat4x4, 4);
 }
 
-/* dado 1 vertices y un triangulo, retorna el id de ese vértice */
+/*
+dado 1 vertices y un triangulo, retorna el id de ese vértice
+en el triangulo
+*/
 int getVertexId(Triangle *triangle, Vertex *vertex) {
     int i;
     for(i=0; i<3; i++)
@@ -102,7 +105,9 @@ int getVertexId(Triangle *triangle, Vertex *vertex) {
     return -1;
 }
 
-/* dado 2 vertices y un triangulo, retorna el tercero de ese triangulo */
+/*
+dado 2 vertices y un triangulo, retorna el tercero de ese triangulo
+*/
 Vertex *getThirdVertex(Triangle *triangle, Vertex *vertex1, Vertex *vertex2) {
     int i;
     for(i=0; i<3; i++)
@@ -142,57 +147,40 @@ float circleTest(Triangle *original, Triangle *next, int sharedV1, int sharedV2)
 
 void changeDiag(Triangle *original, Triangle *next, int sharedV1, int sharedV2, int oppositeV3) {
     int i, j, nextSharedV1=-1, nextSharedV2=-1, nextOppositeV3=-1, vertexId;
-    Vertex *opposite;
-    Triangle *farNext2 = NULL, *farNext1 = NULL;
+    Vertex *opposite, *vertex;
+    Triangle *farNextCopy = NULL;
 
     if (next != NULL) {
-        for(i=0; i<3; i++) {
-            /* rescate vertice opuesto */
-            if (next->vertices[i] != original->vertices[sharedV1] &&
-                next->vertices[i] != original->vertices[sharedV2]) {
-                opposite = next->vertices[i];
-                nextOppositeV3 = i;
-                break;
-            }
+        /* opposite es el vertice opuesto del vecino */
+        opposite = getThirdVertex(next, original->vertices[sharedV1], original->vertices[sharedV2]);
+        if (opposite==NULL) {
+            printf("error grave A");
+            return;
         }
-        /* actualizar 2do vecino lejano */
-        for(i=0; i<3; i++) {
-            if (next->vertices[i] == original->vertices[sharedV2]) {
-                nextSharedV2 = i;
-                /*
-                si existe tal vecino lejano, cambiar vecino del vertice
-                opuesto (para no tener drama en el futuro
-                */
-                if(next->next[i] != NULL) {
-                    farNext2 = next->next[i];
-                    vertexId = getThirdVertexId(next->next[i], opposite, original->vertices[sharedV1]);
-                    next->next[i]->next[vertexId] = original;
-                }
-                break;
-            }
-        }
-        /* este dato lo usaremos despues para actualizar vecindario local */
+        /* se rescatan los id de los vertices del vecino */
         nextSharedV1 = getVertexId(next, original->vertices[sharedV1]);
-
-        /* actualizar 1er vecino lejano */
-        farNext1 = original->next[sharedV1];
-        if (original->next[sharedV1] != NULL) {
-            for(i=0; i<3; i++) {
-                if (original->next[sharedV1]->vertices[i] != original->vertices[sharedV2] &&
-                    original->next[sharedV1]->vertices[i] != original->vertices[oppositeV3]) {
-                    original->next[sharedV1]->next[i] = next;
-                }
-                break;
-            }
+        nextSharedV2 = getVertexId(next, original->vertices[sharedV2]);
+        nextOppositeV3 = getThirdVertexId(next, original->vertices[sharedV1], original->vertices[sharedV2]);
+        /* se actualiza el 2do vecino lejano en caso que lo tenga */
+        if(next->next[nextSharedV2] != NULL) {
+            vertexId = getThirdVertexId(next->next[nextSharedV2], opposite, original->vertices[sharedV1]);
+            next->next[nextSharedV2]->next[vertexId] = original;
         }
-        /* cambiar la diagonal */
+        /* actualizamos el 1er vecino lejano */
+        farNextCopy = original->next[sharedV1];
+        if (original->next[sharedV1] != NULL) {
+            vertex = getThirdVertex(original->next[sharedV1], original->vertices[sharedV2], original->vertices[oppositeV3]);
+            vertexId = getVertexId(original->next[sharedV1], vertex);
+            original->next[sharedV1]->next[vertexId] = next;
+        }
+        /* se cambia la diagonal */
         original->vertices[sharedV2] = opposite;
         next->vertices[nextSharedV1] = original->vertices[oppositeV3];
         /* actualizar vecindario local */
-        original->next[oppositeV3] = farNext2;
+        original->next[oppositeV3] = next->next[nextSharedV2];
         original->next[sharedV1] = next;
         /* original->next[sharedV2] no requiere ser actualizado */
-        next->next[nextOppositeV3] = farNext1;
+        next->next[nextOppositeV3] = farNextCopy;
         next->next[nextSharedV2] = original;
         /* original->next[sharedV1] no requiere ser actualizado */
     }
@@ -296,19 +284,27 @@ void pointOnEdge(
     triangleB->vertices[1] = triangleA->vertices[idVerticeOpuesto];
     triangleB->vertices[2] = triangleA->vertices[idVerticeCompartido2];
     triangleA->vertices[idVerticeCompartido2] = vertice;
-
     /* se actualizan los vecinos */
     if (triangleA->next[idVerticeCompartido1] != NULL) {
-        for(int i=0; i<3; i++) {
-            if(triangleA->next[idVerticeCompartido1]->vertices[i] != triangleB->vertices[1] &&
-            triangleA->next[idVerticeCompartido1]->vertices[i] != triangleB->vertices[2]) {
-                triangleA->next[idVerticeCompartido1]->next[i] = triangleB;
-            }
-        }
+        triangleA->next[idVerticeCompartido1]->next[getThirdVertexId(
+            triangleA->next[idVerticeCompartido1],
+            triangleB->vertices[1],
+            triangleB->vertices[2]
+        )];
     }
     triangleB->next[2] = triangleA;
     triangleB->next[0] = triangleA->next[idVerticeCompartido1];
     triangleA->next[idVerticeCompartido1] = triangleB;
+}
+
+void debugTriangle(Triangle *triangles) {
+    int i;
+    printf("%.2f,%.2f %.2f,%.2f %.2f,%.2f vecinos: %p %p %p en %p\n",
+        triangles->vertices[0]->x, triangles->vertices[0]->y,
+        triangles->vertices[1]->x, triangles->vertices[1]->y,
+        triangles->vertices[2]->x, triangles->vertices[2]->y,
+        triangles->next[0], triangles->next[1], triangles->next[2],
+        triangles);
 }
 
 void printTriangles(Triangle *triangles, int numTrs) {
@@ -427,13 +423,6 @@ int main()
                 if (triangles[i].next[2]!=NULL) {
                     det = circleTest(&triangles[i], triangles[i].next[2], 0, 1);
                     if (det > 0) {
-                        /*
-                        si no pasa el test del circulo, se hace el cambio de diagonal
-                        tr original:           triangles[i]
-                        tr proximo:            triangles[i].next[2]
-                        tr vecino lejano 1:    triangles[i].next[0]
-                        tr vecino lejano 2:    es el vecino que comparte triangles[i].vertices[0] con triangles[i].next[2]
-                        */
                         changeDiag(&triangles[i], triangles[i].next[2], 0, 1, 2);
                     }
                 }
@@ -482,8 +471,8 @@ int main()
             if (dets[0] == 0 && dets[1] > 0 && dets[2] > 0) {
                 caeEnBorde = 1;
                 idVerticeOpuesto = 2;
-                idVerticeCompartido1 = 0;
-                idVerticeCompartido2 = 1;
+                idVerticeCompartido1 = 1;
+                idVerticeCompartido2 = 0;
             } else if (dets[0] > 0 && dets[1] == 0 && dets[2] > 0) {
                 caeEnBorde = 2;
                 idVerticeOpuesto = 0;
@@ -496,21 +485,20 @@ int main()
                 idVerticeCompartido2 = 2;
             }
             if (caeEnBorde > 0) {
+                continue;
+                printf("punto cae en borde %d de %p\n", caeEnBorde, &triangles[i]);
                 vertices[numVs] = (Vertex){.x=x, .y=y};
                 /* el punto cae en borde compartido con 2 triangulos */
                 if(triangles[i].next[idVerticeOpuesto] != NULL) {
                     /* se regulariza si hay vecino frente al vértice opuesto */
-                    for(j=0; j<3; j++) {
-                        if(triangles[i].next[idVerticeOpuesto]->vertices[j]==triangles[i].vertices[idVerticeCompartido1]) {
-                            idVertice2Vecino = j;
-                        }
-                        else if(triangles[i].next[idVerticeOpuesto]->vertices[j]==triangles[i].vertices[idVerticeCompartido2]) {
-                            idVertice1Vecino = j;
-                        }
-                        else if(triangles[i].next[idVerticeOpuesto]->vertices[j]!=triangles[i].vertices[idVerticeCompartido1] &&
-                            triangles[i].next[idVerticeOpuesto]->vertices[j]!=triangles[i].vertices[idVerticeCompartido2]) {
-                            idVerticeOpuestoVecino = j;
-                        }
+                    if (caeEnBorde==3) {
+                        idVertice1Vecino = getVertexId(triangles[i].next[idVerticeOpuesto], triangles[i].vertices[idVerticeCompartido2]);
+                        idVertice2Vecino = getVertexId(triangles[i].next[idVerticeOpuesto], triangles[i].vertices[idVerticeCompartido1]);
+                        idVerticeOpuestoVecino = getThirdVertexId(triangles[i].next[idVerticeOpuesto], triangles[i].vertices[idVerticeCompartido1], triangles[i].vertices[idVerticeCompartido2]);
+                    } else {
+                        idVertice1Vecino = getVertexId(triangles[i].next[idVerticeOpuesto], triangles[i].vertices[idVerticeCompartido1]);
+                        idVertice2Vecino = getVertexId(triangles[i].next[idVerticeOpuesto], triangles[i].vertices[idVerticeCompartido2]);
+                        idVerticeOpuestoVecino = getThirdVertexId(triangles[i].next[idVerticeOpuesto], triangles[i].vertices[idVerticeCompartido1], triangles[i].vertices[idVerticeCompartido2]);
                     }
                     pointOnEdge(
                         triangles[i].next[idVerticeOpuesto],
@@ -536,35 +524,49 @@ int main()
                     /* se aplica el test de círculo para los 4 triangulos involucrados y los
                     vertices opuestos de los vecinos externos */
                     /* i */
-                    if(triangles[i].next[idVerticeCompartido2] != NULL && 0) {
+                    if(triangles[i].next[idVerticeCompartido2] != NULL) {
                         det = circleTest(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto);
+                        printf("A: %.2f\n", det);
                         if (det > 0) {
                             changeDiag(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto, idVerticeCompartido2);
                         }
                     }
                     /* vecino de i */
-                    if(triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino] != NULL && 0) {
+                    if(triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino] != NULL) {
                         det = circleTest(triangles[i].next[idVerticeOpuesto], triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino], idVertice1Vecino, idVerticeOpuestoVecino);
+                        printf("B: %.2f\n", det);
                         if (det > 0) {
                             changeDiag(triangles[i].next[idVerticeOpuesto], triangles[i].next[idVerticeOpuesto]->next[idVertice2Vecino], idVertice1Vecino, idVerticeOpuestoVecino, idVertice2Vecino);
                         }
                     }
                     /* nuevo 1 */
-                    if(triangles[numTrs-1].next[0] != NULL && 0) {
+                    if(triangles[numTrs-1].next[0] != NULL) {
                         det = circleTest(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2);
+                        printf("C: %.2f\n", det);
                         if (det > 0) {
+                            printf("C\n");
                             changeDiag(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2, 0);
                         }
                     }
                     /* nuevo 2 */
-                    if(triangles[numTrs-2].next[0] != NULL && 0) {
+                    if(triangles[numTrs-2].next[0] != NULL) {
                         det = circleTest(&triangles[numTrs-2], triangles[numTrs-2].next[0], 1, 2);
+                        printf("D: %.2f\n", det);
                         if (det > 0) {
                             changeDiag(&triangles[numTrs-2], triangles[numTrs-2].next[0], 1, 2, 0);
                         }
                     }
 
                 } else {
+                    /* actualizacion prematura de vecinos */
+                    if (triangles[i].next[idVerticeCompartido1] != NULL) {
+                        triangles[numTrs].next[0] = &triangles[i];
+                        idVerticeOpuestoVecino = getThirdVertexId(
+                            triangles[i].next[idVerticeCompartido1],
+                            triangles[i].vertices[idVerticeCompartido1],
+                            triangles[i].vertices[idVerticeOpuesto]
+                        );
+                    }
                     pointOnEdge(
                         &triangles[i],
                         &triangles[numTrs],
@@ -576,6 +578,7 @@ int main()
                     /* test del circulo */
                     if(triangles[i].next[idVerticeCompartido2] != NULL) {
                         det = circleTest(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto);
+                        printf("E: %.2f\n", det);
                         if (det > 0) {
                             changeDiag(&triangles[i], triangles[i].next[idVerticeCompartido2], idVerticeCompartido1, idVerticeOpuesto, idVerticeCompartido2);
                         }
@@ -583,6 +586,7 @@ int main()
                     if(triangles[numTrs-1].next[0] != NULL) {
                         det = circleTest(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2);
                         if (det > 0) {
+                            printf("F\n");
                             changeDiag(&triangles[numTrs-1], triangles[numTrs-1].next[0], 1, 2, 0);
                         }
                     }
